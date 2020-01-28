@@ -12,7 +12,7 @@ class Event:
         self.kernel_type = kernel_type # PL (Power Law) ou EXP (Exponential)
         
 
-history = pd.DataFrame(data=[[5,0.2],[9,0.35],[15,0.7],[6,0.95],[1,1.1]], columns=["magnitude","time"])
+historydf = pd.DataFrame(data=[[5,0.2],[9,0.35],[15,0.7],[6,0.95],[1,1.1]], columns=["magnitude","time"])
 
 
 # Un événement : retweet d'un utilisateur paramétré par le couple (mi, ti)
@@ -40,8 +40,8 @@ plt.plot(t, values_PL2, color='r')
 plt.title("Power Law memory kernel over time")
 
 # Lambda est l'Event Rate : somme de tous les noyaux des événements d'origine temporelle < t
-def Lambda(history, t, K = 0.024, beta = 0.5, mmin = 1, c = 0.001, theta = 0.2):
-    subset = history[history.time < max(t)]
+def Lambda(cascade, t, K = 0.024, beta = 0.5, mmin = 1, c = 0.001, theta = 0.2):
+    subset = cascade[cascade.time < max(t)]
     Lambda = np.zeros(len(t))
     if not subset.empty:
         kernels = [kernelFct(row.to_numpy(), t, K, beta, mmin, c, theta) for i, row in subset.iterrows()]
@@ -58,10 +58,10 @@ u = Lambda(real_cascade, t, K, beta, mmin, c, theta) # 43 x 600
 plt.plot(t, u)
 
 # Approximation numérique de l'intégrale de Lambda(t) pour exprimer la log-vraissemblance
-def integrateLambda(lower, upper, history, K = 0.024, beta = 0.5, mmin = 1, c = 0.001, theta = 0.2):
-    history["apply"] = (history["magnitude"] / mmin)**beta * (1/(theta * c**theta) - 1/(theta * (upper + c - history["time"])**theta))
-    result = history["apply"].sum()
-    history.drop(columns=["apply"], inplace=True)
+def integrateLambda(lower, upper, cascade, K = 0.024, beta = 0.5, mmin = 1, c = 0.001, theta = 0.2):
+    cascade["apply"] = (cascade["magnitude"] / mmin)**beta * (1/(theta * c**theta) - 1/(theta * (upper + c - cascade["time"])**theta))
+    result = cascade["apply"].sum()
+    cascade.drop(columns=["apply"], inplace=True)
     return(result)
 
 # EXEMPLE
@@ -73,10 +73,10 @@ print("Intégrale de Lambda(t) sur [0, bigT] = ", v)
 
 # On doit minimiser l'opposé de la log-vraissemblance dans le cadre d'un problème non-linéaire avec contraintes
 # S'exprime avec la somme de Lambda aux temps {ti} et l'intégrale de Lambda sur l'intervalle d'observation
-def neg_log_likelihood(history, K = 0.024, beta = 0.5, mmin = 1, c = 0.001, theta = 0.2):
-    bigT = history["time"].max()        
-    Lambda_i = [Lambda(history, np.array([tti]), K, beta, mmin, c, theta) for tti in history.loc[1:, "time"]] # On ne compte pas la contribution de l'événement à t=0
-    return(integrateLambda(0, bigT, history, K, beta, mmin, c, theta) - sum(np.log(Lambda_i)))
+def neg_log_likelihood(cascade, K = 0.024, beta = 0.5, mmin = 1, c = 0.001, theta = 0.2):
+    bigT = cascade["time"].max()        
+    Lambda_i = [Lambda(cascade, np.array([tti]), K, beta, mmin, c, theta) for tti in cascade.loc[1:, "time"]] # On ne compte pas la contribution de l'événement à t=0
+    return(integrateLambda(0, bigT, cascade, K, beta, mmin, c, theta) - sum(np.log(Lambda_i))[0])
 
 # EXEMPLE
 print(neg_log_likelihood(real_cascade, K, beta, mmin, c, theta))
@@ -91,8 +91,10 @@ def contraint():
 def jacobian():
     return 0
 
+# Initialisation aléatoire uniforme du set de paramètres à optimiser
 def createStartPoints():
-    return 0
+    return([np.random.uniform(0.0,1.0,size=1)[0], np.random.uniform(0.0,1.016,size=1)[0], np.random.uniform(0.0,1.0,size=1)[0], np.random.uniform(0.0,1.0,size=1)[0]])
+
 
 # Resolution non linéaire de la minimisation de la log-vraissemblance négative
 def fitParameters(x0, history):
@@ -111,7 +113,24 @@ def fitParameters(x0, history):
     
     return 0
 
+from scipy.optimize import minimize, Bounds
 
+x0 = createStartPoints()
+res = minimize(fun = neg_log_likelihood(cascade=real_cascade),
+               x0 = x0,
+               method = 'SLSQP',
+               #jac = ,
+               bounds = Bounds([0,0,0,0], [1,1.016,math.inf,math.inf]),
+               options = {'maxiter':10000})
+
+
+
+               
+               
+
+               
+               
+               
 
 """
 En langage R : librairie ipoptr

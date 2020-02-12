@@ -5,6 +5,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from ipopt import minimize_ipopt
 
+real_cascade = pd.read_csv('./example_book.csv')
+
 
 # Un événement : retweet d'un utilisateur paramétré par le couple (mi, ti)
 # Se modélise par un noyau suivant une loi de puissance : PHIm(t-ti)
@@ -38,8 +40,6 @@ def Lambda(cascade, t, K = 0.024, beta = 0.5, c = 0.001, theta = 0.2, mmin = 1):
     return(Lambda)
 """
 # EXEMPLE
-real_cascade = pd.read_csv('Documents/PFE-SD9/protoprojetsd9/Python/example_book.csv')
-
 K, beta, c, theta = 0.8, 0.6, 10, 0.8
 u = [Lambda(real_cascade, t, K, beta, c, theta) for t in np.arange(0, 600)]
 plt.plot(np.arange(0, 600), u) # Tracé du taux d'arrivée d'événements après 600 millisecondes

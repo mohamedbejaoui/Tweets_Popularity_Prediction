@@ -51,7 +51,7 @@ def Lambda(cascade, t, K = 0.024, beta = 0.5, mmin = 1, c = 0.001, theta = 0.2):
     return(Lambda)
 
 # EXEMPLE
-real_cascade = pd.read_csv('Documents/PFE-SD9/protoprojetsd9/Python/example_book.csv')
+real_cascade = pd.read_csv('./example_book.csv')
 t = np.arange(0, 600) # Etat du taux d'arrivée d'événements après 600 millisecondes
 K, beta, mmin, c, theta = 0.8, 0.6, 1, 10, 0.8
 u = Lambda(real_cascade, t, K, beta, mmin, c, theta) # 43 x 600
@@ -65,7 +65,7 @@ def integrateLambda(lower, upper, cascade, K = 0.024, beta = 0.5, mmin = 1, c = 
     return(result)
 
 # EXEMPLE
-real_cascade = pd.read_csv('Documents/PFE-SD9/protoprojetsd9/Python/example_book.csv')
+real_cascade = pd.read_csv('./example_book.csv')
 bigT = 10000 # Etat du taux d'arrivée d'événements après 600 millisecondes
 K, beta, mmin, c, theta = 0.8, 0.6, 1, 10, 0.8
 v = integrateLambda(0, bigT, real_cascade, K, beta, mmin, c, theta)

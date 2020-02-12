@@ -3,7 +3,7 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.optimize import minimize, Bounds, NonlinearConstraint
+from ipopt import minimize_ipopt
 
 
 # Un événement : retweet d'un utilisateur paramétré par le couple (mi, ti)
@@ -18,7 +18,7 @@ def kernelFct(event, t, K = 0.024, beta = 0.5, c = 0.001, theta = 0.2, mmin = 1)
         # Virality * Influence of the user * Decaying (relaxation kernel)
         val_i = K * (mi / mmin)**beta / (t - ti + c)**(1+theta)
     return(val_i)
-
+"""
 # EXEMPLE
 event1, event2 = [1000, 12], [750, 68]
 K, beta, c, theta = 0.8, 0.6, 10, 0.8
@@ -26,7 +26,7 @@ values_PL1, values_PL2 = [kernelFct(event1, t, K, beta, c, theta) for t in np.ar
 plt.plot(np.arange(0, 100, 0.1), values_PL1)
 plt.plot(np.arange(0, 100, 0.1), values_PL2, color='r')
 plt.title("Power Law memory kernel over time")
-
+"""
 # Lambda est l'Event Rate : somme de tous les noyaux des événements d'origine temporelle < t
 # cascade de type Pandas DataFrame / t de type float
 def Lambda(cascade, t, K = 0.024, beta = 0.5, c = 0.001, theta = 0.2, mmin = 1):
@@ -36,14 +36,14 @@ def Lambda(cascade, t, K = 0.024, beta = 0.5, c = 0.001, theta = 0.2, mmin = 1):
         kernels = [kernelFct(row.to_numpy(), t, K, beta, c, theta) for i, row in subset.iterrows()]
         Lambda = sum(kernels) # Somme des kernels pour obtenir Lambda(t)
     return(Lambda)
-
+"""
 # EXEMPLE
 real_cascade = pd.read_csv('Documents/PFE-SD9/protoprojetsd9/Python/example_book.csv')
 
 K, beta, c, theta = 0.8, 0.6, 10, 0.8
 u = [Lambda(real_cascade, t, K, beta, c, theta) for t in np.arange(0, 600)]
 plt.plot(np.arange(0, 600), u) # Tracé du taux d'arrivée d'événements après 600 millisecondes
-
+"""
 # Approximation numérique de l'intégrale de Lambda(t) pour exprimer la log-vraissemblance
 # lower & upper de type float / cascade de type Pandas DataFrame
 def integrateLambda(lower, upper, cascade, K = 0.024, beta = 0.5, c = 0.001, theta = 0.2, mmin = 1):
@@ -51,13 +51,13 @@ def integrateLambda(lower, upper, cascade, K = 0.024, beta = 0.5, c = 0.001, the
     result = cascade["apply"].sum()
     cascade.drop(columns=["apply"], inplace=True)
     return(result)
-
+"""
 # EXEMPLE
 bigT = 1500 # Etat du taux d'arrivée d'événements après 600 millisecondes
 K, beta, c, theta = 0.8, 0.6, 10, 0.8
 v = integrateLambda(0, bigT, real_cascade, K, beta, c, theta)
 print("Intégrale de Lambda(t) sur [0, %s] = " % (bigT), v)
-
+"""
 # On doit minimiser l'opposé de la log-vraissemblance dans le cadre d'un problème non-linéaire avec contraintes
 # S'exprime avec la somme de Lambda aux temps {ti} et l'intégrale de Lambda sur l'intervalle d'observation
 def neg_log_likelihood(x, *args):
@@ -65,10 +65,10 @@ def neg_log_likelihood(x, *args):
     bigT = cascade["time"].max()        
     Lambda_i = [Lambda(cascade, tti, x[0], x[1], x[2], x[3]) for tti in cascade.loc[1:, "time"]] # On ne compte pas la contribution de l'événement à t=0
     return(integrateLambda(0, bigT, cascade, x[0], x[1], x[2], x[3]) - sum(np.log(Lambda_i)))
-
+"""
 # EXEMPLE
 print("neg_log_likelihood de real_cascade.csv \npour le jeu de données K = %s, beta = %s, c = %s, theta = %s :" % (K, beta, c, theta), neg_log_likelihood([K, beta, c, theta], real_cascade))
-
+"""
 
 # Jacobienne de la log-vraissemblance pour assister l'algorithme
 def neg_log_likelihood_jacobian(x, *args): # K, beta, c, theta = x[0], x[1], x[2], x[3]
@@ -104,7 +104,7 @@ def neg_log_likelihood_jacobian(x, *args): # K, beta, c, theta = x[0], x[1], x[2
 
 # Initialisation aléatoire uniforme du set de paramètres à optimiser
 def createStartPoints():
-    return([np.random.uniform(0.0,1.0,size=1)[0], np.random.uniform(0.0,1.016,size=1)[0], np.random.uniform(0.0,1.0,size=1)[0], np.random.uniform(0.0,1.0,size=1)[0]])
+    return([np.random.uniform(0.0,1.0,size=1)[0], np.random.uniform(0.0,1.016,size=1)[0], np.random.uniform(0.0,10.0,size=1)[0], np.random.uniform(0.0,10.0,size=1)[0]])
 
 # La contrainte non linéaire sur le branching factor n* / n_star pour qu'il y ait convergence
 def constraint(x):
@@ -118,15 +118,19 @@ def constraint_jacobian(x):
 # Resolution non linéaire de la minimisation de la log-vraissemblance négative
 def fitParameters(cascade):
     x0 = createStartPoints()
-    res = minimize(fun = neg_log_likelihood,
-                   args = real_cascade,
-                   x0 = x0,
-                   method = 'SLSQP',
-                   jac = neg_log_likelihood_jacobian,
-                   bounds = Bounds([0,0,0,0], [1,1.016,np.inf,np.inf]),
-                   constraints = NonlinearConstraint(fun = constraint, lb=[-1*np.inf], ub=[0], jac = constraint_jacobian),
-                   options = {'maxiter': 1000, 'disp': True})
-    return(res.x)
+    nlp = minimize_ipopt(neg_log_likelihood,
+                         x0,
+                         args = cascade,
+                         method = None,
+                         jac = neg_log_likelihood_jacobian,
+                         bounds = [[0,1],[0,1.016],[0,np.inf],[0,np.inf]],
+                         #constraints=(),
+                         tol = None,
+                         callback = None,
+                         options = {"max_iter": 1000})
+    x, info = nlp.solve()
+    return(x, info)
+
 # EXEMPLE
 print(fitParameters(real_cascade))
                          

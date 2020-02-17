@@ -1,146 +1,139 @@
-import math
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from functools import reduce
-# IPOPT for non linear solver with constraints and bounds
-import ipopt
+from ipopt import minimize_ipopt
 
-# Un event est une cascade de retweets modélisée par des couples (mi, ti) magnitude-temps
-class Event:
-    def __init__(self, kernel_type):
-        self.kernel_type = kernel_type # PL (Power Law) ou EXP (Exponential)
-        
-
-historydf = pd.DataFrame(data=[[5,0.2],[9,0.35],[15,0.7],[6,0.95],[1,1.1]], columns=["magnitude","time"])
+real_cascade = pd.read_csv('./example_book.csv')
 
 
 # Un événement : retweet d'un utilisateur paramétré par le couple (mi, ti)
 # Se modélise par un noyau suivant une loi de puissance : PHIm(t-ti)
-# event de type 2-length array / t de type np.arange()
-def kernelFct(event, t, K = 0.024, beta = 0.5, mmin = 1, c = 0.001, theta = 0.2):
+# event de type [., .] / t de type float
+def kernelFct(event, t, K = 0.024, beta = 0.5, c = 0.001, theta = 0.2, mmin = 1): 
     mi = event[0]
     ti = event[1] # Origine temporelle
-    val_i = np.zeros(len(t))
+    val_i = 0.
     #  Le noyau n'est pas défini aux temps < ti et à une magnitude < mmin
-    if mi > mmin:
-        indices_definis = np.where(t>=ti)[0]
-        if len(indices_definis)>0:
-            # Virality * Influence of the user * Decaying (relaxation kernel)
-            val_i[indices_definis] = K * (mi / mmin)**beta / (t[indices_definis] - ti + c)**(1+theta)
+    if mi > mmin and t >= ti:
+        # Virality * Influence of the user * Decaying (relaxation kernel)
+        val_i = K * (mi / mmin)**beta / (t - ti + c)**(1+theta)
     return(val_i)
-
+"""
 # EXEMPLE
 event1, event2 = [1000, 12], [750, 68]
-t = np.arange(0, 100, 0.1)
-K, beta, mmin, c, theta = 0.8, 0.6, 1, 10, 0.8
-values_PL1, values_PL2 = kernelFct(event1, t, K, beta, mmin, c, theta), kernelFct(event2, t, K, beta, mmin, c, theta)
-plt.plot(t, values_PL1)
-plt.plot(t, values_PL2, color='r')
+K, beta, c, theta = 0.8, 0.6, 10, 0.8
+values_PL1, values_PL2 = [kernelFct(event1, t, K, beta, c, theta) for t in np.arange(0, 100, 0.1)], [kernelFct(event2, t, K, beta, c, theta) for t in np.arange(0, 100, 0.1)]
+plt.plot(np.arange(0, 100, 0.1), values_PL1)
+plt.plot(np.arange(0, 100, 0.1), values_PL2, color='r')
 plt.title("Power Law memory kernel over time")
-
+"""
 # Lambda est l'Event Rate : somme de tous les noyaux des événements d'origine temporelle < t
-def Lambda(cascade, t, K = 0.024, beta = 0.5, mmin = 1, c = 0.001, theta = 0.2):
-    subset = cascade[cascade.time < max(t)]
-    Lambda = np.zeros(len(t))
+# cascade de type Pandas DataFrame / t de type float
+def Lambda(cascade, t, K = 0.024, beta = 0.5, c = 0.001, theta = 0.2, mmin = 1):
+    subset = cascade[cascade.time < t]
+    Lambda = 0.
     if not subset.empty:
-        kernels = [kernelFct(row.to_numpy(), t, K, beta, mmin, c, theta) for i, row in subset.iterrows()]
-        # Somme élément par élément des kernels pour obtenir les coordonnées de Lambda(t)
-        kernels_df = pd.DataFrame(data = kernels)
-        Lambda = kernels_df.sum(axis=0).to_numpy()
+        kernels = [kernelFct(row.to_numpy(), t, K, beta, c, theta) for i, row in subset.iterrows()]
+        Lambda = sum(kernels) # Somme des kernels pour obtenir Lambda(t)
     return(Lambda)
-
+"""
 # EXEMPLE
-real_cascade = pd.read_csv('./example_book.csv')
-t = np.arange(0, 600) # Etat du taux d'arrivée d'événements après 600 millisecondes
-K, beta, mmin, c, theta = 0.8, 0.6, 1, 10, 0.8
-u = Lambda(real_cascade, t, K, beta, mmin, c, theta) # 43 x 600
-plt.plot(t, u)
-
+K, beta, c, theta = 0.8, 0.6, 10, 0.8
+u = [Lambda(real_cascade, t, K, beta, c, theta) for t in np.arange(0, 600)]
+plt.plot(np.arange(0, 600), u) # Tracé du taux d'arrivée d'événements après 600 millisecondes
+"""
 # Approximation numérique de l'intégrale de Lambda(t) pour exprimer la log-vraissemblance
-def integrateLambda(lower, upper, cascade, K = 0.024, beta = 0.5, mmin = 1, c = 0.001, theta = 0.2):
+# lower & upper de type float / cascade de type Pandas DataFrame
+def integrateLambda(lower, upper, cascade, K = 0.024, beta = 0.5, c = 0.001, theta = 0.2, mmin = 1):
     cascade["apply"] = (cascade["magnitude"] / mmin)**beta * (1/(theta * c**theta) - 1/(theta * (upper + c - cascade["time"])**theta))
     result = cascade["apply"].sum()
     cascade.drop(columns=["apply"], inplace=True)
     return(result)
-
+"""
 # EXEMPLE
-real_cascade = pd.read_csv('./example_book.csv')
-bigT = 10000 # Etat du taux d'arrivée d'événements après 600 millisecondes
-K, beta, mmin, c, theta = 0.8, 0.6, 1, 10, 0.8
-v = integrateLambda(0, bigT, real_cascade, K, beta, mmin, c, theta)
-print("Intégrale de Lambda(t) sur [0, bigT] = ", v)
-
+bigT = 1500 # Etat du taux d'arrivée d'événements après 600 millisecondes
+K, beta, c, theta = 0.8, 0.6, 10, 0.8
+v = integrateLambda(0, bigT, real_cascade, K, beta, c, theta)
+print("Intégrale de Lambda(t) sur [0, %s] = " % (bigT), v)
+"""
 # On doit minimiser l'opposé de la log-vraissemblance dans le cadre d'un problème non-linéaire avec contraintes
 # S'exprime avec la somme de Lambda aux temps {ti} et l'intégrale de Lambda sur l'intervalle d'observation
-def neg_log_likelihood(cascade, K = 0.024, beta = 0.5, mmin = 1, c = 0.001, theta = 0.2):
+def neg_log_likelihood(x, *args):
+    cascade = args[0] # DataFrame
     bigT = cascade["time"].max()        
-    Lambda_i = [Lambda(cascade, np.array([tti]), K, beta, mmin, c, theta) for tti in cascade.loc[1:, "time"]] # On ne compte pas la contribution de l'événement à t=0
-    return(integrateLambda(0, bigT, cascade, K, beta, mmin, c, theta) - sum(np.log(Lambda_i))[0])
-
+    Lambda_i = [Lambda(cascade, tti, x[0], x[1], x[2], x[3]) for tti in cascade.loc[1:, "time"]] # On ne compte pas la contribution de l'événement à t=0
+    return(integrateLambda(0, bigT, cascade, x[0], x[1], x[2], x[3]) - sum(np.log(Lambda_i)))
+"""
 # EXEMPLE
-print(neg_log_likelihood(real_cascade, K, beta, mmin, c, theta))
-print(neg_log_likelihood(real_cascade))
+print("neg_log_likelihood de real_cascade.csv \npour le jeu de données K = %s, beta = %s, c = %s, theta = %s :" % (K, beta, c, theta), neg_log_likelihood([K, beta, c, theta], real_cascade))
+"""
 
-# 
-def closedGradient():
-    return 
+# Jacobienne de la log-vraissemblance pour assister l'algorithme
+def neg_log_likelihood_jacobian(x, *args): # K, beta, c, theta = x[0], x[1], x[2], x[3]
+    cascade = args[0]
+    bigT = cascade["time"].max()
+    # Dérivée directionnelle en K
+    cascade["apply_K"] = cascade["magnitude"]**x[1] * (1/x[2]**x[3] - 1/(bigT + x[2] - cascade["time"])**x[3])
+    deriv_K = cascade.loc[1:, "apply_K"].sum()/x[3] - (cascade.shape[0] - 1)/x[0]
+    
+    # Quelques sommes partielles aux temps (Tj) < Ti
+    for j, row in cascade.iterrows():
+        if j>1:
+            cascade.at[j, "apply_beta_1_numerator"] = cascade.iloc[:j, :2].apply(lambda y: (y[0]**x[1]) * np.log(y[0]) / ((row["time"]-y[1]+x[2])**(1+x[3])), axis=1).sum()
+            cascade.at[j, "apply_c_1_numerator"] = cascade.iloc[:j, :2].apply(lambda y: -1*(1+x[3]) * (y[0]**x[1]) / ((row["time"]-y[1]+x[2])**(2+x[3])), axis=1).sum()
+            cascade.at[j, "apply_theta_1_numerator"] = cascade.iloc[:j, :2].apply(lambda y: -1*(y[0]**x[1]) * np.log(row["time"]-y[1]+x[2]) / ((row["time"]-y[1]+x[2])**(1+x[3])), axis=1).sum()
+            cascade.at[j, "apply_beta_c_theta_denominator"] = cascade.iloc[:j, :2].apply(lambda y: (y[0]**x[1]) / ((row["time"]-y[1]+x[2])**(1+x[3])), axis=1).sum()
+      
+    # Dérivée directionnelle en beta
+    cascade["apply_beta_2"] = cascade["magnitude"]**x[1] * np.log(cascade["magnitude"]) * (1/x[2]**x[3] - 1/(bigT + x[2] - cascade["time"])**x[3])
+    deriv_beta = x[0] * cascade.loc[1:, "apply_beta_2"].sum()/x[3] - (cascade["apply_beta_1_numerator"]/cascade["apply_beta_c_theta_denominator"]).sum()
+    
+    # Dérivée directionnelle en c
+    cascade["apply_c_2"] = cascade["magnitude"]**x[1] * (1/(bigT + x[2] - cascade["time"])**(1+x[3]) - 1/x[2]**(1+x[3]))
+    deriv_c = x[0] * cascade.loc[1:, "apply_c_2"].sum() - (cascade["apply_c_1_numerator"]/cascade["apply_beta_c_theta_denominator"]).sum()
+     
+    # Dérivée directionnelle en theta
+    cascade["apply_theta_2"] = cascade["magnitude"]**x[1] * ((1+x[3]*np.log(bigT+x[2]-cascade["time"]))/((bigT+x[2]-cascade["time"])**x[3]) - (1+x[3]*np.log(x[2]))/(x[2]**x[3]))
+    deriv_theta = x[0] * cascade.loc[1:, "apply_theta_2"].sum()/(x[3]**2) - (cascade["apply_theta_1_numerator"]/cascade["apply_beta_c_theta_denominator"]).sum()
+    # Result
+    cascade.drop(columns=["apply_K","apply_beta_1_numerator","apply_c_1_numerator","apply_theta_1_numerator","apply_beta_c_theta_denominator","apply_beta_2","apply_c_2","apply_theta_2"], inplace=True)
+    return([deriv_K, deriv_beta, deriv_c, deriv_theta])
 
-def contraint():
-    return 0
-
-def jacobian():
-    return 0
 
 # Initialisation aléatoire uniforme du set de paramètres à optimiser
 def createStartPoints():
-    return([np.random.uniform(0.0,1.0,size=1)[0], np.random.uniform(0.0,1.016,size=1)[0], np.random.uniform(0.0,1.0,size=1)[0], np.random.uniform(0.0,1.0,size=1)[0]])
+    return([np.random.uniform(0.0,1.0,size=1)[0], np.random.uniform(0.0,1.016,size=1)[0], np.random.uniform(0.0,10.0,size=1)[0], np.random.uniform(0.0,10.0,size=1)[0]])
+
+# La contrainte non linéaire sur le branching factor n* / n_star pour qu'il y ait convergence
+def constraint(x):
+    return([np.log(x[0]) + np.log(1.1016) - np.log(1.016 - x[1]) - np.log(x[3]) - x[3]*np.log(x[2])])
+
+# La jacobienne de la contrainte pour assister l'algorithme
+def constraint_jacobian(x):
+    return([1/x[0], 1/(1.016 - x[1]), -1*x[3]/x[2], -1*(1/x[3]) - np.log(x[2])])
 
 
 # Resolution non linéaire de la minimisation de la log-vraissemblance négative
-def fitParameters(x0, history):
-    jac = # Jacobienne
-    hess = # Hessienne
-    constraints = ()
-    opts = # Options
-    
-    bounds = [[0,1],[0,1.016],[0, math.inf],[0, math.inf]] # lb & ub
-    
-    x0 = [np.random.uniform(0.0,1.0,size=1)[0], np.random.uniform(0.0,1.016,size=1)[0], np.random.uniform(0.0,1.0,size=1)[0], np.random.uniform(0.0,1.0,size=1)[0]]
-    
-    nlp = ipopt.minimize_ipopt(neg_log_likelihood, x0, bounds=bounds)
-    
-    nlp.solve(x0)
-    nlp.values()
-    
-    return 0
+def fitParameters(cascade):
+    x0 = createStartPoints()
+    nlp = minimize_ipopt(neg_log_likelihood,
+                         x0,
+                         args = cascade,
+                         method = None,
+                         jac = neg_log_likelihood_jacobian,
+                         bounds = [[0,1],[0,1.016],[0,np.inf],[0,np.inf]],
+                         #constraints=(),
+                         tol = None,
+                         callback = None,
+                         options = {"max_iter": 1000})
+    x, info = nlp.solve()
+    return(x, info)
 
-
-
-
-
-from scipy.optimize import minimize, Bounds
-
-x0 = createStartPoints()
-res = minimize(fun = neg_log_likelihood(cascade=real_cascade),
-               x0 = x0,
-               method = 'SLSQP',
-               #jac = ,
-               bounds = Bounds([0,0,0,0], [1,1.016,math.inf,math.inf]),
-               options = {'maxiter':10000})
-
-
-
-               
-from scipy.optimize import rosen, rosen_der
-from ipopt import minimize_ipopt
-x0 = [1.3, 0.7, 0.8, 1.9, 1.2]
-res = minimize_ipopt(rosen, x0, jac=rosen_der)
-print(res)
-
-               
-               
-               
+# EXEMPLE
+print(fitParameters(real_cascade))
+                         
 
 """
 En langage R : librairie ipoptr
@@ -158,39 +151,7 @@ constraint_ub = c(log(1 - .Machine$double.eps)), # vecteur des bornes supérieur
 opts = list(print_level = 0, linear_solver = "ma57", max_iter = 10000), # options : 
 history = history
 
-
-
-En Python : cyipopt / ipopt 
-
-
-bounds = [[1,2],[1,2],[1,2],..]
-lb, ub = get_bounds(bounds) = [[1],[1],..], [[2],[2],..]
-
-nlp = ipopt.minimize_ipopt(fun, x0, args=(), kwargs=None, method=None, jac=None, hess=None, hessp=None,
-                   bounds=None, constraints=(), tol=None, callback=None, options=None)
-
-_x0 = np.atleast_1d(x0)
-    problem = IpoptProblemWrapper(fun, args=args, kwargs=kwargs, jac=jac, hess=hess,
-                                  hessp=hessp, constraints=constraints)
-
-
-    cl, cu = get_constraint_bounds(constraints, x0)
-
-    if options is None:
-        options = {}
-
-    nlp = cyipopt.problem(n = len(_x0),
-                          m = len(cl),
-                          problem_obj=problem,
-                          lb=lb,
-                          ub=ub,
-                          cl=cl,
-                          cu=cu)
-
-
-
 """
-
 
 # Le branching factor n* caractérise le nombre moyen attendu d'événements enfantés par un événement parent
 # Le nombre d'événements enfanté par un parent se calcule par SUM ( (n*)**k )
@@ -198,10 +159,10 @@ _x0 = np.atleast_1d(x0)
 def getBranchingFactor(K = 0.024, alpha = 2.016, beta = 0.5, mmin = 1, c = 0.001, theta = 0.2):
     if beta >= (alpha - 1):
         print("The closed expression calculated by this function does NOT hold for beta >= alpha - 1")
-        return(math.inf)
+        return(np.inf)
     elif theta <= 0:
         print("The closed expression calculated by this function does NOT hold for theta <= 0 (K=%.4f, beta=%.2f, theta=%.2f)".format(K, beta, theta))
-        return(math.inf)
+        return(np.inf)
     else:
         return(K*(alpha - 1) / ((alpha - 1 - beta) * (theta * c**theta)))
 #
@@ -212,7 +173,7 @@ def getTotalEvents(history, bigT, K = 0.024, alpha = 2.016, beta = 0.5, mmin = 1
     n_star = getBranchingFactor(K, alpha, beta, mmin, c, theta)
     if n_star >= 1:
         print("Branching Factor greater than 1, not possible to predict the size (super critical regime)")
-        return([math.inf, n_star, 'NA'])
+        return([np.inf, n_star, 'NA'])
     else:
         history["apply"] = history["magnitude"]**beta / ((bigT + c - history["magnitude"])**theta)
         a1 = K * history["apply"].sum() / theta # calculating the expected size of first level of descendants

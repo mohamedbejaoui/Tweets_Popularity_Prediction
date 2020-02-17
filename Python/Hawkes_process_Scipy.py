@@ -38,7 +38,7 @@ def Lambda(cascade, t, K = 0.024, beta = 0.5, c = 0.001, theta = 0.2, mmin = 1):
     return(Lambda)
 
 # EXEMPLE
-real_cascade = pd.read_csv('Documents/PFE-SD9/protoprojetsd9/Python/example_book.csv')
+real_cascade = pd.read_csv('./example_book.csv')
 
 K, beta, c, theta = 0.8, 0.6, 10, 0.8
 u = [Lambda(real_cascade, t, K, beta, c, theta) for t in np.arange(0, 600)]
@@ -114,43 +114,21 @@ def constraint(x):
 def constraint_jacobian(x):
     return([1/x[0], 1/(1.016 - x[1]), -1*x[3]/x[2], -1*(1/x[3]) - np.log(x[2])])
 
-x0 = createStartPoints()
-res = minimize(fun = neg_log_likelihood,
-               args = real_cascade,
-               x0 = x0,
-               method = 'SLSQP',
-               jac = neg_log_likelihood_jacobian,
-               bounds = Bounds([0,0,0,0], [1,1.016,np.inf,np.inf]),
-               constraints = NonlinearConstraint(fun = constraint, lb=[-1*np.inf], ub=[0], jac = constraint_jacobian),
-               options = {'maxiter': 1000, 'disp': True})
-
-
-
 
 # Resolution non linéaire de la minimisation de la log-vraissemblance négative
-def fitParameters(x0, history):
-    jac = # Jacobienne
-    hess = # Hessienne
-    constraints = ()
-    opts = # Options
-    
-    bounds = [[0,1],[0,1.016],[0, np.inf],[0, np.inf]] # lb & ub
-    
-    x0 = [np.random.uniform(0.0,1.0,size=1)[0], np.random.uniform(0.0,1.016,size=1)[0], np.random.uniform(0.0,1.0,size=1)[0], np.random.uniform(0.0,1.0,size=1)[0]]
-    
-    nlp = ipopt.minimize_ipopt(neg_log_likelihood, x0, bounds=bounds)
-    
-    nlp.solve(x0)
-    nlp.values()
-    
-    return 0
-
-
-
-
-
-
-
+def fitParameters(cascade):
+    x0 = createStartPoints()
+    res = minimize(fun = neg_log_likelihood,
+                   args = real_cascade,
+                   x0 = x0,
+                   method = 'SLSQP',
+                   jac = neg_log_likelihood_jacobian,
+                   bounds = Bounds([0,0,0,0], [1,1.016,np.inf,np.inf]),
+                   constraints = NonlinearConstraint(fun = constraint, lb=[-1*np.inf], ub=[0], jac = constraint_jacobian),
+                   options = {'maxiter': 1000, 'disp': True})
+    return(res.x)
+# EXEMPLE
+print(fitParameters(real_cascade))
                          
 
 """

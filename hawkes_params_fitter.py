@@ -16,7 +16,6 @@ from hawkes_point_process.marked_hawkes import create_start_points, fit_paramete
 
 CASCADE_OBSERVATION_TIME = 600 # 10min
 ALERT_THRESH = 200 # we send an alert if a cascade size estimtation is bigger than this threshold
-SEED = 0
 
 consumer = KafkaConsumer('fit_hawkes_params', 
 						  bootstrap_servers='localhost:9092', 
@@ -65,7 +64,7 @@ for tweet_info in consumer:
 		# TODO: add RF prediction layer
 
 		# if the estimated size of the cascade is > 50, send an alert to a topic
-		if N_pred >= 200:
+		if N_pred >= ALERT_THRESH:
 			print(f"Sending alert for {num_cascade}")
 			producer.send(topic='pred_size_alert',
 						  value={'cascade_idx': num_cascade, 'estimated_size': N_pred})

@@ -186,7 +186,7 @@ def jacobian(params: Dict[str, float]):
 	return np.array([1 / K, 1 / (1.016 - beta), -theta / c, -(1 / theta) - np.log(c)])
 
 
-def create_start_points(seed=None):
+def create_start_points(seed=None) -> Dict[str, float]:
 	"""  create random and defined starting points """
 	np.random.seed(seed)
 	start_K = np.random.uniform(np.finfo(float).eps, 1, 5)
@@ -261,4 +261,5 @@ class hawkes_solver(object):
 			alpha_du,
 			alpha_pr,
 			ls_trials):
-		print("Objective value at iteration #%d is - %g" % (iter_count, obj_value))
+		if iter_count % 100 == 0:
+			print("Objective value at iteration #%d is - %g" % (iter_count, obj_value))

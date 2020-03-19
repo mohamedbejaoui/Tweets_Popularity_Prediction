@@ -3,7 +3,7 @@ import numpy as np
 
 from kafka import KafkaConsumer, KafkaProducer
 from hawkes_point_process.marked_hawkes import create_start_points, fit_parameters, get_total_events
-from hawkes_point_process.random_forest_model import RF_model
+from RF_model.random_forest_model import RF_model
 
 
 """

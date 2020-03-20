@@ -1,9 +1,9 @@
 import json
 import numpy as np
+import requests
 
 from kafka import KafkaConsumer, KafkaProducer
 from hawkes_point_process.marked_hawkes import create_start_points, fit_parameters, get_total_events
-from RF_model.random_forest_model import RF_model
 
 
 """
@@ -31,6 +31,11 @@ consumer = KafkaConsumer('fit_hawkes_params',
 producer = KafkaProducer(bootstrap_servers='localhost:9092',
 						 client_id='pfe2019',
 						 value_serializer=lambda x: json.dumps(x).encode('utf-8'))
+
+## FLASK API where Random Forest model is stored
+url = 'http://0.0.0.0:5000/api/'
+headers = {'content-type': 'application/json', 'Accept-Charset': 'UTF-8'}
+
 
 
 cascades_info = {} # dict that stores params of each cascades to be fitted
@@ -61,15 +66,19 @@ for tweet_info in consumer:
         fitted_cascades.add(num_cascade)
     
         # compute the estimated final cascade size
-        prediction = get_total_events(history=history, T=CASCADE_OBSERVATION_TIME, params=fitted_params)['total']
+        prediction = get_total_events(history=history, T=CASCADE_OBSERVATION_TIME, params=fitted_params)
         
         if prediction['n_star']>=1: # Cas du régime super-critique
             pass
         else:
             # RF prediction layer
-            RF_params = dict(c=result_params[2], theta=result_params[3], A1=prediction['a1'], n_star=prediction['n_star'])
+            RF_params = [[result_params[2], result_params[3], prediction['a1'], prediction['n_star']]]
+            json_data = json.dumps(RF_params)
+            r = requests.post(url, data=json_data, headers=headers)
+            r_json = r.json()
             
-            w_pred = RF_model.fit(RF_params)
+            # Output : swaling factor w
+            w_pred = float(r_json[1:-1])
             N_pred = len(history) + w_pred * prediction['a1'] / (1 - prediction['n_star'])
             
             # if the estimated size of the cascade is > 50, send an alert to a topic

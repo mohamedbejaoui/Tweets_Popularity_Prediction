@@ -26,7 +26,7 @@ Long process (1h for 60 cascades with laptop performance)
 Hence, apply on batches of 20 cascades before saving fitted parameters to .csv
 So process can be killed without a big loss
 """
-index_start, index_length, occurences = 320, 20, 1
+index_start, index_length, occurences = 510, 20, 5
 
 
 ## CONTEXT PARAMETERS
@@ -45,6 +45,7 @@ RF_train_data = pd.read_csv('training_data_RF.csv', names=['c','theta','A1','n_s
 for occ in range(occurences):
     indexes = Indexes.iloc[index_start+occ*index_length:index_start+(occ+1)*index_length]
     numero = len(indexes)
+    print("########### OCURRENCE : ", occ, "\n\n\n")
     for cascade_idx in tqdm(range(numero)):
         cascade = cascades.loc[indexes.iloc[cascade_idx, 0]:indexes.iloc[cascade_idx, 1]]
         history = cascade[cascade['time']<=observation_duration]

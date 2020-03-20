@@ -7,7 +7,7 @@ from kafka import KafkaProducer
 KAFKA_TOPIC = 'fit_hawkes_params'
 
 # read tweets data
-tweets_dir = './data'
+tweets_dir = './RF_model'
 data_df = pd.read_csv(tweets_dir+'/data.csv')
 index_df = pd.read_csv(tweets_dir+'/index.csv')
 

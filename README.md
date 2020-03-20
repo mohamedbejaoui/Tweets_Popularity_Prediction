@@ -2,8 +2,15 @@
 
 ### how it works
 
+In kafka_2.12-2.4.0 folder
+
+* start zooKeeper server. In kafka directory run:<br>
+```bin/zookeeper-server-start.sh config/zookeeper.properties```
+
 * start kafka server. In kafka directory run:<br>
 ```bin/kafka-server-start.sh config/server.properties```
+
+In our GitHub repository folder
 
 * create necessary topics by running the following python script<br>
 ```python kafka_config.py```<br>

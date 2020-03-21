@@ -30,7 +30,7 @@ def kernel_fct(event, t, params=default_params, alpha = 2.016, mmin = 1, inclusi
 
 
 def lambda_rate(t: np.array, history: np.ndarray, params: Dict[str, float], inclusive = False):
-	K, beta, c, theta = params['K'], params['beta'], params['c'], params['theta']
+	#K, beta, c, theta = params['K'], params['beta'], params['c'], params['theta']
 	res = np.zeros((len(t),))
 	for i in range(len(t)):
 		history_iter = history[history[:, 1]<=t[i]]
@@ -65,7 +65,7 @@ def get_branching_factor(params: Dict[str, float], alpha=2.016, mmin=1) -> float
 	K, beta, c, theta = params['K'], params['beta'], params['c'], params['theta']
 	if beta >= alpha - 1:
 		logging.warning("The closed expression calculated by this function does NOT hold for beta >= alpha - 1")
-		return flaot('inf')
+		return float('inf')
 	if theta <= 0:
 		logging.warning(f"The closed expression calculated by this function does NOT hold for theta <= 0 (K={round(K, 4)}, beta={round(beta, 2)}, theta={round(theta, 2)})")
 

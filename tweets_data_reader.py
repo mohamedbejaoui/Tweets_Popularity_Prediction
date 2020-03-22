@@ -1,13 +1,17 @@
 import pandas as pd
 import random
 import json
+import time
+import numpy as np
+from threading import Thread
 
 from kafka import KafkaProducer
+
 
 KAFKA_TOPIC = 'fit_hawkes_params'
 
 # read tweets data
-tweets_dir = './RF_model'
+tweets_dir = './data/tweets'
 data_df = pd.read_csv(tweets_dir+'/data.csv')
 index_df = pd.read_csv(tweets_dir+'/index.csv')
 
@@ -17,11 +21,12 @@ producer = KafkaProducer(bootstrap_servers='localhost:9092',
 						 client_id='pfe2019',
 						 value_serializer=lambda x: json.dumps(x).encode('utf-8'))
 
-# just for test, remove later
-tweets_counter = 0
-max_tweets = 1000000
+# mean and variance for the delay distribution
+DELAY_MEAN = 1
+DELAY_VAR = 10
 
-while tweets_sent_count != {} and tweets_counter < max_tweets:
+
+while tweets_sent_count != {}:
 	cascade_idx = random.choice(list(tweets_sent_count.keys()))
 	tweet_idx = tweets_sent_count[cascade_idx] + index_df.iloc[cascade_idx]['start_ind'] - 1
 	tweets_sent_count[cascade_idx] += 1
@@ -37,6 +42,8 @@ while tweets_sent_count != {} and tweets_counter < max_tweets:
 				  # TODO: modify key when initial training dataset is constructed
 				  key=f'cascade_n{cascade_idx+1}-{N_real}'.encode('utf-8'))
 
-	tweets_counter += 1
+	# add random delay before sending next tweet
+	time.sleep(abs(np.random.normal(DELAY_MEAN, DELAY_VAR, 1)[0]))
+
 
 producer.flush()

@@ -5,9 +5,6 @@ from flask import Flask, request, redirect, url_for, flash, jsonify
 import numpy as np
 import pickle as p
 import json
-import sys
-
-sys.path.append('../')
 
 
 app = Flask(__name__)

@@ -26,7 +26,7 @@ Long process (1h for 60 cascades with laptop performance)
 Hence, apply on batches of 20 cascades before saving fitted parameters to .csv
 So process can be killed without a big loss
 """
-index_start, index_length, occurences = 510, 20, 5
+index_start, index_length, occurences = 2000, 20, 35
 
 
 ## CONTEXT PARAMETERS

@@ -13,7 +13,9 @@ In kafka_2.12-2.4.0 folder
 
 In our GitHub repository folder
 
-> in RF_model folder :
+* create necessary topics by running the following python script<br>
+```python kafka_config.py```<br>
+this script must be run only the first time this manipulaiton is done.<br>
 
 * train the supervised model by running the following python script<br>
 ```python RF_model/random_forest_model.py```<br>
@@ -21,13 +23,6 @@ unecessary if model is already trained and saved as a .pickle<br>
 
 * host the trained model on Flask by running the following python script<br>
 ```python RF_model/flask_app.py```<br>
-
-> in repository folder :
-
-* create necessary topics by running the following python script<br>
-```python kafka_config.py```<br>
-this script must be run only the first time this manipulaiton is done.<br>
-
 
 * run the kafka consumer that receives tweets to predict final cascade size<br>
 ```python hawkes_params_fitter.py```

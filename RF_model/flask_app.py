@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 from flask import Flask, request, redirect, url_for, flash, jsonify
 import numpy as np
 import pickle as p
@@ -24,4 +21,3 @@ if __name__ == '__main__':
     modelfile = 'RF_model.pickle'
     model = p.load(open(modelfile, 'rb'))
     app.run(debug=True, host='0.0.0.0')
-#

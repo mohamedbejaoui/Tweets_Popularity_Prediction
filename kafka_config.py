@@ -10,7 +10,8 @@ admin_client = KafkaAdminClient(bootstrap_servers="localhost:9092", client_id='p
 topics_list = [
 	NewTopic(name='fit_hawkes_params', num_partitions=100, replication_factor=1),
 	NewTopic(name='rf_train', num_partitions=100, replication_factor=1),
-	NewTopic(name='pred_size_alert', num_partitions=20, replication_factor=1)
+	NewTopic(name='pred_size_alert', num_partitions=20, replication_factor=1),
+	NewTopic(name='pretrained_rf', num_partitions=1, replication_factor=1)
 ]
 
 # if topic doesn't exist create it 

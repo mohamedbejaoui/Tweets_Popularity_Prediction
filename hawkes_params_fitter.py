@@ -89,7 +89,7 @@ for tweet_info in consumer:
             
             # Output : scaling factor w
             w_pred = float(json.loads(r_json[1:-1])[0])
-            # improve cascade size estimation using predicted scaling factor
+            # imrpove cascade size estimation using predicted scaling factor
             N_pred = len(history) + w_pred * prediction['a1'] / (1 - prediction['n_star'])
             
             # if the estimated size of the cascade is > 50, send an alert to a topic

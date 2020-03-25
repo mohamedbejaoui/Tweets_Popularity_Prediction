@@ -4,8 +4,6 @@ import numpy as np
 import requests
 import time
 import json
-import pickle
-import csv
 from compress_pickle import dumps, loads
 from threading import Thread, Lock
 
@@ -14,11 +12,13 @@ from hawkes_point_process.marked_hawkes import create_start_points, fit_paramete
 
 
 """
-    Kafka node that receives tweets from fit_hawkes_params topic.
-    If observation time for a cascade is reached, predict its final size.
-    If it's bigger than a threshold, send and alert.
-    ALso, this node checks whether old received cascades can be considered finished or not.
-    If they are, we fit their hawkes params and save them into the rf training dataset
+	Kafka code that contains 3 threads:
+		* thread 1: updates random forest regressor
+		* thread 2: receives tweets from fit_hawkes_params topic.    
+					If observation time for a cascade is reached, predict its final size.
+    				If it's bigger than a threshold, send and alert.
+    	* thread 3: checks whether old received cascades can be considered finished or not.
+    				If they are, we fit their hawkes params and send them to the rf trainer node.
 """
 
 CASCADE_OBSERVATION_TIME = 600 # 10min
@@ -83,9 +83,6 @@ class tweets_processor_thread(Thread):
 		global cascades_considered_finished
 		global lock
 
-		# create starting params for fitting hawkes process. same seed means same starting point for all cascades
-		start_params = np.array([np.random.choice(param) for param in create_start_points(seed=None).values()])
-
 		for tweet_info in tweet_consumer:
 			# get cascade number from message key
 			num_cascade = tweet_info.key.decode('utf-8').split('-')[0]
@@ -102,41 +99,43 @@ class tweets_processor_thread(Thread):
 
 			# As soon as we a received tweet's timestamp reaches the defined obsevation time, we fit the hawkes params and ignore upcoming tweets of same cascade 
 			if cascades_info[num_cascade][-1, 1] >= CASCADE_OBSERVATION_TIME and num_cascade not in fitted_cascades:
-			    # fit hawkes params using current cascade's history
-			    history = cascades_info[num_cascade][1:]
-			    # if last tweet's timestamp is > observation_time, remove it
-			    if history[-1, 1] > CASCADE_OBSERVATION_TIME:
-			        history = history[:-1, :]
-			    print(f"Fitting hawkes parameters for {num_cascade}")
-			    result_params, _ = fit_parameters(history.astype(float), start_params)
-			    # store fitted params in a dict
-			    fitted_params = dict(K=result_params[0], beta=result_params[1], c=result_params[2], theta=result_params[3])
-			    # add fitted params to set of cascade nums for which hawkes params were already fitted.
-			    fitted_cascades.add(num_cascade)
+				# fit hawkes params using current cascade's history
+				history = cascades_info[num_cascade][1:]
+				# if last tweet's timestamp is > observation_time, remove it
+				if history[-1, 1] > CASCADE_OBSERVATION_TIME:
+				    history = history[:-1, :]
+				print(f"Fitting hawkes parameters for {num_cascade}")
+				# create starting params for fitting hawkes process. same seed means same starting point for all cascades
+				start_params = np.array([np.random.choice(param) for param in create_start_points(seed=None).values()])
+				result_params, _ = fit_parameters(history.astype(float), start_params)
+				# store fitted params in a dict
+				fitted_params = dict(K=result_params[0], beta=result_params[1], c=result_params[2], theta=result_params[3])
+				# add fitted params to set of cascade nums for which hawkes params were already fitted.
+				fitted_cascades.add(num_cascade)
 
-			    # compute the estimated final cascade size
-			    prediction = get_total_events(history=history, T=CASCADE_OBSERVATION_TIME, params=fitted_params)
-			    
-			    if prediction['n_star'] >= 1: # super-critical regime
-			        pass
-			    else:
-			        # RF prediction layer
-			        rf_features = np.array([[result_params[2], result_params[3], prediction['a1'], prediction['n_star']]])
-			        try:
-			        	scaling_factor = rf_regressor.predict(rf_features)[0]
-			        except NameError:
-			        	pass
-			        # improve cascade size estimation using predicted scaling factor
-			        N_pred = len(history) + scaling_factor * prediction['a1'] / (1 - prediction['n_star'])
-			        # if the estimated size of the cascade is > 50, send an alert to a topic
-			        if N_pred >= ALERT_THRESH:
-			            print(f"Sending alert for {num_cascade}")
-			            producer.send(topic='pred_size_alert',
-			                          value={'cascade_idx': num_cascade, 'estimated_size': N_pred})
-			            producer.flush()
+				# compute the estimated final cascade size
+				prediction = get_total_events(history=history, T=CASCADE_OBSERVATION_TIME, params=fitted_params)
+
+				if prediction['n_star'] >= 1: # super-critical regime
+				    pass
+				else:
+				    # RF prediction layer
+				    rf_features = np.array([[result_params[2], result_params[3], prediction['a1'], prediction['n_star']]])
+				    try:
+				    	scaling_factor = rf_regressor.predict(rf_features)[0]
+				    except NameError:
+				    	pass
+				    # improve cascade size estimation using predicted scaling factor
+				    N_pred = len(history) + scaling_factor * prediction['a1'] / (1 - prediction['n_star'])
+				    # if the estimated size of the cascade is > 50, send an alert to a topic
+				    if N_pred >= ALERT_THRESH:
+				        print(f"Sending alert for {num_cascade}")
+				        producer.send(topic='pred_size_alert',
+				                      value={'cascade_idx': num_cascade, 'estimated_size': N_pred})
+				        producer.flush()
 
 
-# Thread3: regularly, check if received cascades are finished are ready to be stored in the training dataset
+# Thread3: regularly, check if received cascades are finished and ready to be stored in the training dataset
 class cascades_finish_checker_thread(Thread):
 	def run(self):
 		global cascades_info
@@ -155,22 +154,23 @@ class cascades_finish_checker_thread(Thread):
 			finished_cascades = set()
 			while cascades_for_train != [] and idx < len(cascades_for_train):
 				if time.time() - cascades_last_ts[cascades_for_train[idx]] >= CASCADE_FINISH_DURATION:
-				    cascade_len = len(cascades_info[cascades_for_train[idx]])
+					cascade_len = len(cascades_info[cascades_for_train[idx]])
 				    # include only cascades whith more than 50 retweets in the training dataset
-				    if  cascade_len >= 50:
-				        # fit hawkes params using current cascade's history
-				        history = cascades_info[num_cascade][1:]
-				        history = history[history[:, 1] <= CASCADE_OBSERVATION_TIME]
-				        result_params, _ = fit_parameters(history.astype(float), start_params)
-				        fitted_params = dict(K=result_params[0], beta=result_params[1], c=result_params[2], theta=result_params[3])
-				        other_prams = get_total_events(history=history, T=CASCADE_OBSERVATION_TIME, params=fitted_params)
-				        rf_features = [result_params[2], result_params[3], other_prams['a1'], other_prams['n_star']]
-				        w_train = (cascade_len - len(history)) * (1 - other_prams['n_star']) / other_prams['a1']
-				        # write cascade info at the end of rf training dataset csv file
-				        with open('./data/rf_train/training_data_rf.csv', 'a') as data_rf:
-				            writer = csv.writer(data_rf)
-				            writer.writerow(rf_features + [w_train, cascade_len])
-				    finished_cascades.add(cascades_for_train[idx])
+					if  cascade_len >= 50:
+						print(f"{cascades_for_train[idx]} is considered finished. It's final size is {cascade_len}.")
+						# fit hawkes params using current cascade's history
+						history = cascades_info[cascades_for_train[idx]][1:]
+						history = history[history[:, 1] <= CASCADE_OBSERVATION_TIME]
+						start_params = np.array([np.random.choice(param) for param in create_start_points(seed=None).values()])
+						result_params, _ = fit_parameters(history.astype(float), start_params)
+						fitted_params = dict(K=result_params[0], beta=result_params[1], c=result_params[2], theta=result_params[3])
+						other_prams = get_total_events(history=history, T=CASCADE_OBSERVATION_TIME, params=fitted_params)
+						w_train = (cascade_len - len(history)) * (1 - other_prams['n_star']) / other_prams['a1']
+						# send training sample to the rf trainer node
+						producer.send(topic='rf_train',
+									  value={'c': result_params[2], 'theta': result_params[3], 'a1': other_prams['a1'], 'n_star': other_prams['n_star'], 'w_train': w_train})
+						producer.flush()
+					finished_cascades.add(cascades_for_train[idx])
 				idx += 1
 			# remove cascades that are saved for training from the list to check from
 			lock.acquire()

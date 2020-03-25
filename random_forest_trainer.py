@@ -15,10 +15,13 @@ Send the trained rf model to a kafka topic
 producer = KafkaProducer(bootstrap_servers='localhost:9092',
             			client_id='pfe2019')
 
+NUM_SAMPLES_TRAIN = 500
 
 # load training data
 data = pd.read_csv("./data/rf_train/training_data_rf.csv")
-x_train, y_train = data[['c','theta','A1','n_star']].to_numpy(), data['w'].to_numpy()
+# choose NUM_SAMPLES_TRAIN random samples from the training dataset because the maximum length of a kafka message is limited
+train_idx = np.random.choice(data.index, NUM_SAMPLES_TRAIN)
+x_train, y_train = data.loc[train_idx, ['c','theta','A1','n_star']].to_numpy(), data.loc[train_idx, 'w'].to_numpy()
 
 # define rf regressor
 rf_regressor = RandomForestRegressor(n_estimators = 100,

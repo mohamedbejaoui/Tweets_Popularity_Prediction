@@ -6,7 +6,7 @@ import time
 admin_client = KafkaAdminClient(bootstrap_servers="localhost:9092", client_id='pfe2019')
 
 # for now, we only have one broker
-# when possibility to have more brokers is avaialble, change replciation factor to 2
+# when possibility to have more brokers is avaialble, change replciation factor to 2!!
 topics_list = [
 	NewTopic(name='fit_hawkes_params', num_partitions=100, replication_factor=1),
 	NewTopic(name='rf_train', num_partitions=100, replication_factor=1),

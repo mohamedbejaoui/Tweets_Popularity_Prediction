@@ -10,9 +10,10 @@ data.drop(data[(data.w>5) | (data.w<0.005) | (data.n<5)].index, inplace=True)
 
 # FIT
 X, y = data[['c','theta','A1','n_star']], data[['w']]
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.45) # SPLIT TRAIN-TEST DATA
+test_size = round((len(data)-500)/len(data),3) # 500 training data exactly for memory volume purpose
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size)
 m = RandomForestRegressor(n_estimators = 100,
-                          criterion="mae", # "mse" Mean-Square Error; or "mae" Mean Absolute Error
+                          criterion="mse", # "mse" Mean-Square Error; or "mae" Mean Absolute Error
                           max_depth = None)
 m.fit(X_train, y_train.w.ravel())
 y_pred = m.predict(X_test)
@@ -45,9 +46,14 @@ box = plt.boxplot(box_data,
             showmeans=True,
             meanline=True,
             meanprops=dict(linestyle='--', linewidth=2.5, color='r'))
-plt.title("Average ARE per deciles (cascades sorted by real number of retweets)\n" + \
-	"\n" + \
-	"Total average ARE = {a}% for {c} tested data ( model trained with {b} data)\n".format(a=round(100*y_test.are.mean(),2),
-		b=len(y_train), c=len(y_test)))
+plt.title("Average ARE per deciles (cascades sorted by real number of retweets)\n\n" + \
+          "Total average ARE = {a}% for {c} tested data ( model trained with {b} data)\n".format(
+                  a=round(100*y_test.are.mean(),2), b=len(y_train), c=len(y_test)))
+for line in box['medians']:
+    x, y = line.get_xydata()[1]
+    plt.text(x, y, '%s' % round(y,3), horizontalalignment='right', verticalalignment='bottom')
+for line in box['means']:
+    x, y = line.get_xydata()[1] # bottom of left line
+    plt.text(x, y, '%s' % round(y,3), horizontalalignment='right', verticalalignment='bottom')
 plt.show()
 #

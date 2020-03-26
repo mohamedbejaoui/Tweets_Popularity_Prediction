@@ -52,8 +52,8 @@ ALERT_THRESH = 200 # we send an alert if a cascade size estimtation is bigger th
 CASCADE_FINISH_DURATION = 3600 # if for a certain cascade, we don't receive a tweet after this duration, we consider it's finished
 
 # global variables initialization
-cascades_info = {} # dict that stores params of each cascades to be fitted
-cascades_last_ts = {} # stores for each cascade last timestamp a tweet is received
+cascades_info = {} # Dict that stores params of each cascades to be fitted {"NUM_CASCADE" : 2D Array [(magnitude, timestamp)]}
+cascades_last_ts = {} # Dict that stores for each cascade last timestamp a tweet is received {"NUM_CASCADE" : Timestamp}
 cascades_for_train = [] # 'priority queue' that stores received cascades numbers from oldest to newest. it is used to check if cascades can be considered as finished or not.
 cascades_considered_finished = set() # stores cascades that are considered finished and already stored in the training dataset. it is used to make sure we don't check these cascades anymore
 scaling_factor = 1 # scaling factor: for new consumer groups that didn't receive the rf model yet from the kafka topic, we set an initial value of 1 for the scaling factor
@@ -119,7 +119,7 @@ class tweets_processor_thread(Thread):
 				if prediction['n_star'] >= 1: # super-critical regime
 				    pass
 				else:
-				    # RF prediction layer
+				    # prediction layer
 				    rf_features = np.array([[result_params[2], result_params[3], prediction['a1'], prediction['n_star']]])
 				    try:
 				    	scaling_factor = rf_regressor.predict(rf_features)[0]
@@ -168,7 +168,7 @@ class cascades_finish_checker_thread(Thread):
 						w_train = (cascade_len - len(history)) * (1 - other_prams['n_star']) / other_prams['a1']
 						# send training sample to the rf trainer node
 						producer.send(topic='rf_train',
-									  value={'c': result_params[2], 'theta': result_params[3], 'a1': other_prams['a1'], 'n_star': other_prams['n_star'], 'w_train': w_train})
+									  value={'c': result_params[2], 'theta': result_params[3], 'A1': other_prams['a1'], 'n_star': other_prams['n_star'], 'w': w_train})
 						producer.flush()
 					finished_cascades.add(cascades_for_train[idx])
 				idx += 1

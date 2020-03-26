@@ -1,4 +1,4 @@
-## Tweets popularity prediction
+## Tweets popularity analysis in an Apache Kafka Architecutre
 
 ### How it works
 
@@ -39,25 +39,19 @@ the processing nodes will receive the pre-trained regressor to improve the casca
 ### Libraries required
 
 
-* pandas='0.25.1'<br>
- 
-* numpy='1.17.2'<br>
+* Install libraries present in the requirement.txt file<br> 
+```pip install -r requirements.txt```
 
-* tqdm='4.36.1'<br>
-
-* sklearn='0.21.3'<br>
-
-* requests='2.22.0'<br>
-
-* json='2.0.9'<br>
-
-* flask='1.1.1'<br>
-
-
-Install on Anaconda environnement :
-
-* python layer for Kafka<br>
+* Install python layer for Kafka. For conda environment users:<br>
 ```conda install -c conda-forge kafka-python```<br>
 
-* non-linear optimization Ipopt<br>
+* Install non-linear optimization Ipopt. For conda environment users:<br>
 ```conda install -c conda-forge ipopt```<br>
+
+
+
+### Useful links
+
+
+* [Quick command reference for Apache Kafka](https://gist.github.com/ursuad/e5b8542024a15e4db601f34906b30bb5)<br>
+* [kafka-python API](https://kafka-python.readthedocs.io/en/master/apidoc/modules.html)

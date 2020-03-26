@@ -22,8 +22,8 @@ producer = KafkaProducer(bootstrap_servers='localhost:9092',
 						 value_serializer=lambda x: json.dumps(x).encode('utf-8'))
 
 # mean and variance for the delay distribution
-DELAY_MEAN = 1
-DELAY_VAR = 10
+DELAY_MEAN = .01
+DELAY_VAR = .005
 
 
 while tweets_sent_count != {}:

@@ -118,21 +118,22 @@ class tweets_processor_thread(Thread):
 
 				if prediction['n_star'] >= 1: # super-critical regime
 				    pass
-				else:
-				    # prediction layer
-				    rf_features = np.array([[result_params[2], result_params[3], prediction['a1'], prediction['n_star']]])
-				    try:
-				    	scaling_factor = rf_regressor.predict(rf_features)[0]
-				    except NameError:
-				    	pass
-				    # improve cascade size estimation using predicted scaling factor
-				    N_pred = len(history) + scaling_factor * prediction['a1'] / (1 - prediction['n_star'])
-				    # if the estimated size of the cascade is > 50, send an alert to a topic
-				    if N_pred >= ALERT_THRESH:
-				        print(f"Sending alert for {num_cascade}")
-				        producer.send(topic='pred_size_alert',
-				                      value={'cascade_idx': num_cascade, 'estimated_size': N_pred})
-				        producer.flush()
+				else:  # In the 1st occurrences, some cascades with only 1 retweet during OBSERVATION TIME, before 1st training of RF, should not be predicted or it floods the size_alert topic
+					if len(history)<10 or scaling_factor==1:
+					    # prediction layer
+					    rf_features = np.array([[result_params[2], result_params[3], prediction['a1'], prediction['n_star']]])
+					    try:
+					    	scaling_factor = rf_regressor.predict(rf_features)[0]
+					    except NameError:
+					    	pass
+					    # improve cascade size estimation using predicted scaling factor
+					    N_pred = len(history) + scaling_factor * prediction['a1'] / (1 - prediction['n_star'])
+					    # if the estimated size of the cascade is > 50, send an alert to a topic
+					    if N_pred >= ALERT_THRESH:
+					        print(f"Sending alert for {num_cascade}")
+					        producer.send(topic='pred_size_alert',
+					                      value={'cascade_idx': num_cascade, 'estimated_size': N_pred})
+					        producer.flush()
 
 
 # Thread3: regularly, check if received cascades are finished and ready to be stored in the training dataset

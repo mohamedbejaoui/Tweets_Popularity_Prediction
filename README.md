@@ -15,16 +15,14 @@ In our GitHub repository folder
 
 * create necessary topics by running the following python script<br>
 ```python kafka_config.py```<br>
-this script must be run only the first time this manipulaiton is done.<br>
+It is only necessary to run this script the first time this manipulaiton is done.<br>
 
-* train the supervised model by running the following python script<br>
-```python RF_model/random_forest_model.py```<br>
-unecessary if model is already trained and saved as a .pickle<br>
+* run the kafka node that trains the random forest regressor<br>
+```python random_forest_trainer.py```<br>
+NB: At first the scaling factor is equal to 1. When this node receives enough new data points and trains the random forest regressor for the first time,
+the processing nodes will receive the pre-trained regressor to improve the cascades' size estimation. 
 
-* host the trained model on Flask by running the following python script<br>
-```python RF_model/flask_app.py```<br>
-
-* run the kafka consumer that receives tweets to predict final cascade size<br>
+* run the kafka node that receives tweets to predict final cascade size<br>
 ```python hawkes_params_fitter.py```
 
 * run the kafka consumer that receives alerts about cascade size estimations<br>

@@ -1,0 +1,8 @@
+pandas
+numpy
+tqdm
+sklearn
+requests
+json
+flask
+compress_pickle

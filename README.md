@@ -1,7 +1,32 @@
 ## Tweets popularity analysis in an Apache Kafka Architecutre
 
+
+### Libraries required
+
+Here are the instructions to create a conda envrironment with the necessary packages to run the application:<br>
+
+* Create a conda environment that runs with python 3.7<br>
+```conda create -y --name <put_conda_env_name_here> python==3.7```
+
+* Install libraries present in the requirement.txt file<br> 
+```~/anaconda3/bin/pip install -r requirements.txt```
+
+* Install python layer for Kafka<br>
+```conda install -c conda-forge kafka-python```<br>
+
+* Install non-linear optimization Ipopt<br>
+```conda install -c conda-forge ipopt```<br>
+
+
 ### How it works
 
+
+To launch the application, several instructions need to be executed successively.<br>
+
+You can launch the demo bash file that will execute all these instructions automatically by running ```. demo.sh```. This option will work only if you configured the environment using conda.<br>
+**NB:** Before running it, replace in the bash file all the occurencies of ```<put_conda_env_name_here>``` with your conda environment's name for this project.<br>
+
+Or, you can launch the application manually by following these intructions:
 
 In kafka_2.12-2.4.0 folder
 
@@ -11,7 +36,7 @@ In kafka_2.12-2.4.0 folder
 * start kafka server. In kafka directory run:<br>
 ```bin/kafka-server-start.sh config/server.properties```
 
-In our GitHub repository folder
+In our GitHub repository folder (you need to activate the conda environment for each of the following instructions)
 
 * create necessary topics by running the following python script<br>
 ```python kafka_config.py```<br>
@@ -30,24 +55,6 @@ the processing nodes will receive the pre-trained regressor to improve the casca
 
 * finally, run the kafka producer that reads the tweets flow.<br>
 ```python tweets_data_reader.py```
-
-[Quick command reference for Apache Kafka](https://gist.github.com/ursuad/e5b8542024a15e4db601f34906b30bb5)
-
-
-
-
-### Libraries required
-
-
-* Install libraries present in the requirement.txt file<br> 
-```pip install -r requirements.txt```
-
-* Install python layer for Kafka. For conda environment users:<br>
-```conda install -c conda-forge kafka-python```<br>
-
-* Install non-linear optimization Ipopt. For conda environment users:<br>
-```conda install -c conda-forge ipopt```<br>
-
 
 
 ### Useful links

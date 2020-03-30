@@ -3,9 +3,9 @@
 
 ### Libraries required
 
-Here are the instrucitons to create an anaconda envrironment with the necessary packages to run the application:<br>
+Here are the instrucitons to create a conda envrironment with the necessary packages to run the application:<br>
 
-* Create an anaconda environment that runs with python 3.7<br>
+* Create a conda environment that runs with python 3.7<br>
 ```conda create -y --name <put_conda_env_name_here> python==3.7```
 
 * Install libraries present in the requirement.txt file<br> 
@@ -24,7 +24,7 @@ Here are the instrucitons to create an anaconda envrironment with the necessary 
 To launch the application, several instructions need to be executed successively.<br>
 
 You can launch the demo bash file that will execute all these instructions automatically by running ```. demo.sh```<br>
-**NB:** Before running it, replace in the bash file all the occurencies of ```<put_conda_env_name_here>``` by your conda environment for this project.<br>
+**NB:** Before running it, replace in the bash file all the occurencies of ```<put_conda_env_name_here>``` with your conda environment's name for this project.<br>
 
 Or, you can launch the application manually by following these intructions:
 

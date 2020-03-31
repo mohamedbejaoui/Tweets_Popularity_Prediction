@@ -126,7 +126,8 @@ class tweets_processor_thread(Thread):
 				    try:
 				    	scaling_factor = rf_regressor.predict(rf_features)[0]
 				    except NameError:
-				    	pass
+				    	# if rf regressor is not loaded in this node yet (scaling factor equal to 1), the estimation is too inacurate and we ignore this cascade
+				    	continue
 				    # improve cascade size estimation using predicted scaling factor
 				    N_pred = len(history) + scaling_factor * prediction['a1'] / (1 - prediction['n_star'])
 				    # if the estimated size of the cascade is > 50, send an alert to a topic
